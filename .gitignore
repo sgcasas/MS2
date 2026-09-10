@@ -1,0 +1,38 @@
+# --- Claude / Cowork ---
+docs/
+.claude/
+CLAUDE.md
+**/CLAUDE.md
+.claude-*
+*.local.md
+
+# --- Java / Maven ---
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# --- Entorno ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- SO ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/

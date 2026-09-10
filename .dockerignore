@@ -1,0 +1,10 @@
+target/
+.git/
+.gitignore
+docs/
+.claude/
+CLAUDE.md
+*.md
+.env
+.env.*
+docker-compose*.yml
