@@ -14,7 +14,9 @@
 --     eso los residuos se reparten de forma perfectamente uniforme y salen
 --     porcentajes exactos (10.00% por día de semana), que delatan el seed.
 --
--- Cantidad de reseñas por plato: entre 20 y 200, desigual.
+-- Cantidad de reseñas por plato: entre 300 y 700, desigual. Con 50 platos en la
+-- carta hacen falta ~400 reseñas por plato para superar el mínimo de 20,000
+-- registros que pide el enunciado.
 -- Fechas: 78 semanas desde el 03-mar-2025, con más densidad en viernes, sábado y
 -- domingo, y horario de atención (11:00 a 21:59).
 
@@ -65,7 +67,7 @@ calidad AS (
     SELECT
         p.id,
         (((p.id * 53) % 25) - 12)                   AS q,
-        (20 + ((p.id * 37) % 181))::int             AS n_resenas
+        (300 + ((p.id * 37) % 401))::int            AS n_resenas
     FROM platos p
 )
 INSERT INTO resenas (plato_id, calificacion, comentario, autor, creado_en)

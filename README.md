@@ -23,11 +23,11 @@ categorias 1 ──< N platos 1 ──< N resenas
 | Tabla | Filas | Para qué |
 |---|---|---|
 | `categorias` | 12 | Categorías de la carta |
-| `platos` | 210 | La carta del restaurante |
-| `resenas` | 23,010 | Calificaciones y comentarios de clientes por plato |
+| `platos` | 50 | La carta del restaurante |
+| `resenas` | 24,481 | Calificaciones y comentarios de clientes por plato |
 
 El enunciado del curso pide un mínimo de 20,000 registros en **al menos una tabla** de la
-base de datos. Esa tabla es `resenas`. La carta se mantiene en 210 platos porque un menú
+base de datos. Esa tabla es `resenas`. La carta se mantiene en 50 platos porque un menú
 de 20,000 platos no es realista (indicación de la asesora del curso, 19-set-2026).
 
 **Los datos del seed son determinísticos.** Las migraciones `V3`/`V5` no usan `random()`
@@ -114,7 +114,7 @@ vistazo que el archivo bajado está completo:
 
 ```bash
 curl -s -D- -o ms2_resenas.json http://localhost:8082/api/v1/export/resenas | grep X-Total-Rows
-wc -l ms2_resenas.json   # tiene que coincidir
+wc -l ms2_resenas.json   # 24481, tiene que coincidir
 ```
 
 Las filas salen **planas** y con nombres de columna en `snake_case`: la categoría del

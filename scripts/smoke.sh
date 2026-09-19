@@ -135,14 +135,14 @@ else
 fi
 
 # 3. GET /api/v1/platos?page=0&size=5 -> la carta tiene un tamaño realista.
-#    Desde V3 el menú son ~210 platos: el mínimo de 20,000 registros que pide el
+#    Desde V3 el menú son ~50 platos: el mínimo de 20,000 registros que pide el
 #    enunciado lo cumple la tabla de reseñas (ver caso 15), no la de platos.
 code=$(request GET "/api/v1/platos?page=0&size=5")
 total=$(body | jq -r '.totalElements' 2>/dev/null)
-if [ "$code" = "200" ] && [ -n "$total" ] && [ "$total" != "null" ] && [ "$total" -ge 150 ] && [ "$total" -le 400 ]; then
-    pass "3. GET /api/v1/platos?page=0&size=5 -> carta realista, 150-400 platos (totalElements=$total)"
+if [ "$code" = "200" ] && [ -n "$total" ] && [ "$total" != "null" ] && [ "$total" -ge 30 ] && [ "$total" -le 100 ]; then
+    pass "3. GET /api/v1/platos?page=0&size=5 -> carta realista, 30-100 platos (totalElements=$total)"
 else
-    fail "3. GET /api/v1/platos?page=0&size=5 -> carta realista (150-400 platos)" "code=$code totalElements=$total body=$(body)"
+    fail "3. GET /api/v1/platos?page=0&size=5 -> carta realista (30-100 platos)" "code=$code totalElements=$total body=$(body)"
 fi
 
 # 4. GET /api/v1/platos?categoriaId=1&disponible=true&q=ceviche -> 200
