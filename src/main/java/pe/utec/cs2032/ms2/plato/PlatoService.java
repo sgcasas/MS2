@@ -14,10 +14,12 @@ import pe.utec.cs2032.ms2.common.NotFoundException;
 import pe.utec.cs2032.ms2.plato.dto.PlatoRequest;
 import pe.utec.cs2032.ms2.plato.dto.PlatoResponse;
 import pe.utec.cs2032.ms2.plato.dto.PreciosResponse;
+import pe.utec.cs2032.ms2.resena.ResenaService;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,7 @@ public class PlatoService {
 
     private final PlatoRepository platoRepository;
     private final CategoriaService categoriaService;
+    private final ResenaService resenaService;
 
     @Transactional(readOnly = true)
     public Page<PlatoResponse> listar(int page, int size, Long categoriaId, Boolean disponible, String q) {
@@ -39,12 +42,26 @@ public class PlatoService {
                 PlatoSpecifications.nombreContiene(q)
         );
 
-        return platoRepository.findAll(spec, pageable).map(PlatoResponse::from);
+        Page<Plato> pagina = platoRepository.findAll(spec, pageable);
+
+        // Una sola consulta para el agregado de reseñas de toda la página:
+        // sin esto serían N consultas (una por plato) al armar la respuesta.
+        List<Long> ids = pagina.getContent().stream().map(Plato::getId).toList();
+        Map<Long, ResenaService.Agregado> agregados = resenaService.agregadoPorPlatos(ids);
+
+        return pagina.map(plato -> {
+            ResenaService.Agregado agregado =
+                    agregados.getOrDefault(plato.getId(), ResenaService.Agregado.VACIO);
+            return PlatoResponse.from(plato, agregado.calificacionPromedio(), agregado.totalResenas());
+        });
     }
 
     @Transactional(readOnly = true)
     public PlatoResponse obtener(Long id) {
-        return PlatoResponse.from(buscarOrLanzar(id));
+        Plato plato = buscarOrLanzar(id);
+        ResenaService.Agregado agregado = resenaService.agregadoPorPlatos(List.of(id))
+                .getOrDefault(id, ResenaService.Agregado.VACIO);
+        return PlatoResponse.from(plato, agregado.calificacionPromedio(), agregado.totalResenas());
     }
 
     @Transactional

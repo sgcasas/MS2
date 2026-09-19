@@ -134,13 +134,15 @@ else
     fail "2. GET /api/v1/categorias -> 200" "code=$code body=$(body)"
 fi
 
-# 3. GET /api/v1/platos?page=0&size=5 -> totalElements >= 20000
+# 3. GET /api/v1/platos?page=0&size=5 -> la carta tiene un tamaño realista.
+#    Desde V3 el menú son ~210 platos: el mínimo de 20,000 registros que pide el
+#    enunciado lo cumple la tabla de reseñas (ver caso 15), no la de platos.
 code=$(request GET "/api/v1/platos?page=0&size=5")
 total=$(body | jq -r '.totalElements' 2>/dev/null)
-if [ "$code" = "200" ] && [ -n "$total" ] && [ "$total" != "null" ] && [ "$total" -ge 20000 ]; then
-    pass "3. GET /api/v1/platos?page=0&size=5 -> totalElements >= 20000 (totalElements=$total)"
+if [ "$code" = "200" ] && [ -n "$total" ] && [ "$total" != "null" ] && [ "$total" -ge 150 ] && [ "$total" -le 400 ]; then
+    pass "3. GET /api/v1/platos?page=0&size=5 -> carta realista, 150-400 platos (totalElements=$total)"
 else
-    fail "3. GET /api/v1/platos?page=0&size=5 -> totalElements >= 20000" "code=$code totalElements=$total body=$(body)"
+    fail "3. GET /api/v1/platos?page=0&size=5 -> carta realista (150-400 platos)" "code=$code totalElements=$total body=$(body)"
 fi
 
 # 4. GET /api/v1/platos?categoriaId=1&disponible=true&q=ceviche -> 200
@@ -266,6 +268,68 @@ if [ -n "$plato_id" ] && [ "$plato_id" != "null" ]; then
     fi
 else
     fail "12. DELETE /api/v1/platos/{id} -> 204" "no hay plato_id disponible (falló el caso 8)"
+fi
+
+
+# 13. GET /api/v1/platos/{id}/resenas -> 200 con al menos una reseña
+if [ -n "$sample_id" ] && [ "$sample_id" != "null" ]; then
+    code=$(request GET "/api/v1/platos/${sample_id}/resenas?page=0&size=5")
+    total_resenas=$(body | jq -r '.totalElements' 2>/dev/null)
+    if [ "$code" = "200" ] && [ -n "$total_resenas" ] && [ "$total_resenas" != "null" ] && [ "$total_resenas" -gt 0 ]; then
+        pass "13. GET /api/v1/platos/${sample_id}/resenas -> 200 (totalElements=$total_resenas)"
+    else
+        fail "13. GET /api/v1/platos/${sample_id}/resenas -> 200 con reseñas" "code=$code totalElements=$total_resenas body=$(body)"
+    fi
+else
+    fail "13. GET /api/v1/platos/{id}/resenas -> 200" "no hay sample_id disponible"
+fi
+
+# 14. GET /api/v1/platos/{id} -> trae el agregado de reseñas
+if [ -n "$sample_id" ] && [ "$sample_id" != "null" ]; then
+    code=$(request GET "/api/v1/platos/${sample_id}")
+    prom=$(body | jq -r '.calificacionPromedio' 2>/dev/null)
+    tot=$(body | jq -r '.totalResenas' 2>/dev/null)
+    if [ "$code" = "200" ] && [ "$prom" != "null" ] && [ -n "$tot" ] && [ "$tot" != "null" ] && [ "$tot" -gt 0 ]; then
+        pass "14. GET /api/v1/platos/${sample_id} -> agregado de reseñas (promedio=$prom, total=$tot)"
+    else
+        fail "14. GET /api/v1/platos/{id} -> agregado de reseñas" "code=$code promedio=$prom total=$tot body=$(body)"
+    fi
+else
+    fail "14. GET /api/v1/platos/{id} -> agregado de reseñas" "no hay sample_id disponible"
+fi
+
+# 15. GET /api/v1/export/resenas -> el volcado completo, con >= 20,000 filas.
+#     Este es el caso que demuestra el mínimo de registros del enunciado y que la
+#     ingesta puede hacer pull del 100% de los datos.
+code=$(request_with_headers GET "/api/v1/export/resenas")
+filas_header=$(grep -i '^X-Total-Rows:' "$HDR_FILE" | tr -d '\r' | awk '{print $2}')
+filas_body=$(wc -l < "$TMP_BODY" | tr -d ' ')
+if [ "$code" = "200" ] && [ -n "$filas_header" ] && [ "$filas_header" -ge 20000 ] && [ "$filas_header" = "$filas_body" ]; then
+    pass "15. GET /api/v1/export/resenas -> $filas_body filas NDJSON (>= 20000, coincide con X-Total-Rows)"
+else
+    fail "15. GET /api/v1/export/resenas -> >= 20000 filas y X-Total-Rows coincidente" \
+         "code=$code X-Total-Rows=$filas_header lineas=$filas_body"
+fi
+
+# 16. GET /api/v1/export/platos?formato=csv -> cabecera correcta y filas planas
+code=$(request_with_headers GET "/api/v1/export/platos?formato=csv")
+cabecera=$(head -1 "$TMP_BODY" | tr -d '\r')
+esperada="id,categoria_id,categoria_nombre,nombre,descripcion,precio,disponible,tiempo_preparacion_min,calorias,imagen_url,creado_en,actualizado_en"
+filas_header=$(grep -i '^X-Total-Rows:' "$HDR_FILE" | tr -d '\r' | awk '{print $2}')
+filas_body=$(( $(wc -l < "$TMP_BODY") - 1 ))
+if [ "$code" = "200" ] && [ "$cabecera" = "$esperada" ] && [ "$filas_header" = "$filas_body" ]; then
+    pass "16. GET /api/v1/export/platos?formato=csv -> cabecera plana + $filas_body filas"
+else
+    fail "16. GET /api/v1/export/platos?formato=csv -> cabecera plana y conteo coincidente" \
+         "code=$code cabecera='$cabecera' X-Total-Rows=$filas_header filas=$filas_body"
+fi
+
+# 17. GET /api/v1/export/platos con formato inválido -> 400 con ApiError
+code=$(request GET "/api/v1/export/platos?formato=xml")
+if [ "$code" = "400" ]; then
+    pass "17. GET /api/v1/export/platos?formato=xml -> 400"
+else
+    fail "17. GET /api/v1/export/platos?formato=xml -> 400" "code=$code body=$(head -c 200 "$TMP_BODY")"
 fi
 
 echo
