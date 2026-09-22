@@ -36,13 +36,32 @@ de constantes de fecha. Levantar la base en dos máquinas distintas produce **ex
 los mismos datos**, lo que permite que los archivos cargados al bucket S3 coincidan con
 lo que devuelve la API sin importar desde dónde se hizo el volcado.
 
-## Cómo levantarlo (local, con Docker Compose)
+## Cómo se despliega
+
+El MS2 se despliega con el `docker-compose.yml` unificado del equipo, que levanta los
+cinco microservicios juntos en las VMs de aplicación. Este repositorio trae solo el
+código y el `Dockerfile`: la base de datos vive en la VM de base de datos y el MS2 se
+conecta a ella por variables de entorno.
+
+| Variable | En producción |
+|---|---|
+| `DB_HOST` | IP privada de la VM de base de datos |
+| `DB_PORT` | `5432` |
+| `DB_NAME` | nombre de la base en esa VM (default `ms2_menu`) |
+| `DB_USER` / `DB_PASSWORD` | credenciales de esa base (default `postgres` / `postgres`) |
+| `PUBLIC_API_URL` | URL pública del API Gateway, para el "Try it out" de Swagger |
+
+Al arrancar, Flyway crea las tablas y siembra los datos. No hay que cargar nada a mano.
+
+### Correrlo solo, en local
 
 ```bash
-docker compose up --build
+docker run -d --name ms2-pg -e POSTGRES_DB=ms2_menu -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16-alpine
+docker build -t ms2-menu .
+docker run --rm -p 8082:8082 -e DB_HOST=host.docker.internal ms2-menu
 ```
 
-Esto levanta Postgres y la aplicación. La API queda disponible en `http://localhost:8082`.
+La API queda en `http://localhost:8082`.
 
 ## Swagger
 
@@ -142,31 +161,3 @@ BASE_URL=http://localhost:8082 ./scripts/smoke.sh
 de reseñas, creación, validación de errores, actualización, borrado, precios en lote y los
 tres endpoints de export. Es idempotente: crea y borra su propia categoría y plato de
 prueba con nombre `ZZ-smoke-<timestamp>`.
-
-## Despliegue rápido en una VM
-
-Para exponer el MS2 rápido con una sola VM temporal (Postgres + app juntos), usar
-`scripts/user-data-solo.sh` como User data al lanzar una instancia EC2 Amazon Linux 2023.
-El script instala Docker, crea 2 GB de swap, clona el repo, hace `docker compose up -d --build`
-y espera a que `/actuator/health` responda `UP` (timeout 10 min), dejando el resultado en
-`/var/log/ms2-bootstrap.log`.
-
-Para verificar por SSH que quedó arriba:
-
-```bash
-docker compose -f /opt/ms2/docker-compose.yml ps
-curl http://localhost:8082/actuator/health
-curl "http://localhost:8082/api/v1/platos?size=1"
-```
-
-### Actualizar un despliegue existente
-
-Las migraciones `V3`, `V4` y `V5` se aplican encima de una base que ya tiene `V1`/`V2`.
-**No hace falta borrar el volumen de Postgres** (y no se debe, si esa VM comparte la base
-con otros microservicios del equipo):
-
-```bash
-git pull
-docker compose up -d --build
-docker compose logs -f app   # confirmar que Flyway aplica V3, V4 y V5
-```
